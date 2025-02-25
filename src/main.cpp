@@ -3,7 +3,6 @@
 #include <sstream>
 
 #include "../include/_getline.h"
-#include "../include/ascii.h"
 
 int main() {
   // handles Ctrl+C gracefully

@@ -1,9 +1,181 @@
+#include "../include/_getline.h"
+
 #include <termios.h>
 #include <unistd.h>
 
-#include "../include/c_InputLine.h"
+#include <iostream>
+#include <sstream>
 
-void setNonCanonicalMode(struct termios &initialSettings) {
+// HISTORY_CACHE MEMBER FUNCTIONS
+
+HistoryCache::HistoryCache() {
+  addEntry("The brown dog lives on the prairie");
+  addEntry("Yellow is the color of sunshine");
+  addEntry("My neighbor always eats bacon for breakfast");
+  iter = history.end();
+};
+
+void HistoryCache::addEntry(const std::string& entry) {
+  history.push_back(entry);
+}
+
+bool HistoryCache::moveForward() {
+  if (iter != history.end()) {
+    ++iter;
+    return true;
+  }
+  return false;
+}
+
+bool HistoryCache::moveBackward() {
+  if (iter != history.begin()) {
+    --iter;
+    return true;
+  }
+  return false;
+}
+
+void HistoryCache::end() { iter = history.end(); }
+
+bool HistoryCache::isLast() const { return iter == std::prev(history.end()); }
+
+std::string HistoryCache::getCurrent() const {
+  return history.empty() ? "" : *iter;
+}
+
+// INPUT_LINE MEMBER FUNCTIONS
+
+std::string InputLine::getText() const { return text; }
+std::string InputLine::getPrediction() const { return prediction; }
+InputLine::InputState InputLine::getInputState() const { return inputState; }
+void InputLine::setText(const std::string& text) {
+  this->cursorIndex = text.length();
+  this->text = text;
+}
+
+void InputLine::reset() {
+  inputState = INPUT;
+  cursorIndex = 0;
+  text = "";
+  prediction = "";
+  historyCache.end();
+}
+
+void InputLine::backspace() {
+  if (cursorIndex > text.length()) return;
+  --cursorIndex;
+  text.erase(text.begin() + cursorIndex);
+};
+
+// evaluates expression with additional char
+bool InputLine::handleChar(const char ch) {
+  if (ch == '\v') {  // Ctrl-K
+    if (cursorIndex != text.length()) {
+      text = text.substr(0, cursorIndex);
+    }
+    predictFromHistory();
+  } else if (ch == BEG) {  // Ctrl-A
+    cursorIndex = 0;
+  } else if (ch == ESC) {  // handle ANSI escape sequence
+
+    char escCode[2];
+    if (readNextChar(escCode[0]) && readNextChar(escCode[1]) &&
+        escCode[0] == '[') {
+      switch (escCode[1]) {
+        case 'A':  // up arrow
+          if (inputState == INPUT) {
+            inputState = HISTORY;
+          }
+          historyCache.moveBackward();
+          setText(historyCache.getCurrent());
+          break;
+
+        case 'B':  // down arrow
+
+          if (inputState == INPUT) return false;
+
+          if (historyCache.isLast()) {
+            inputState = INPUT;
+            reset();
+          } else {
+            historyCache.moveForward();
+            setText(historyCache.getCurrent());
+          }
+
+          break;
+        case 'D':
+          if (cursorIndex) {
+            std::cout << CURSOR_LEFT << std::flush;
+            --cursorIndex;
+          }
+          break;
+
+        case 'C':
+          if (cursorIndex < text.length()) {
+            std::cout << CURSOR_RIGHT << std::flush;
+            ++cursorIndex;
+          }
+          break;
+      }
+    }
+  } else if (ch == '\t') {  // handle tab
+    if (!prediction.empty()) {
+      text += prediction;
+      prediction = "";
+      cursorIndex = text.length();
+    } else
+      return false;
+
+  } else if (ch == '\177') {  // handle backspace
+    if (cursorIndex) {
+      std::cout << "\177";
+      backspace();
+      predictFromHistory();
+    }
+
+  } else {  // handle character to display
+    inputState = INPUT;
+    text.insert(cursorIndex, std::string(1, ch));
+    ++cursorIndex;
+    predictFromHistory();
+  }
+
+  return true;
+}
+
+void InputLine::displayCurrInput() {
+  std::ostringstream out;
+
+  out << '\r' << ERASE << PROMPT << text << GREY << prediction << WHITE;
+  for (size_t i = 0; i < text.length() + prediction.length() - cursorIndex;
+       i++) {
+    out << CURSOR_LEFT;
+  }
+  std::cout << out.str() << std::flush;
+}
+
+void InputLine::predictFromHistory() {
+  if (text.empty()) {
+    prediction = "";
+    return;
+  }
+
+  while (historyCache.moveBackward()) {
+    if (!historyCache.getCurrent().find(text)) {  // cache item STARTS with text
+      prediction = historyCache.getCurrent().substr(text.length());
+      historyCache.end();
+      return;
+    }
+  }
+  prediction = "";
+  historyCache.end();
+};
+
+// UTILS
+
+bool readNextChar(char& ch) { return read(STDIN_FILENO, &ch, 1) == 1; }
+
+void setNonCanonicalMode(struct termios& initialSettings) {
   struct termios newSettings;
 
   tcgetattr(STDIN_FILENO,
@@ -17,9 +189,9 @@ void setNonCanonicalMode(struct termios &initialSettings) {
   tcsetattr(STDIN_FILENO, TCSANOW, &newSettings);  // Apply new settings
 }
 
-bool readNextChar(char &ch) { return read(STDIN_FILENO, &ch, 1) == 1; }
+// CONTROLLER
 
-void _getline(InputLine &inputLine) {
+void _getline(InputLine& inputLine) {
   static struct termios terminalSettings;
   char ch;
 
