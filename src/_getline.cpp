@@ -8,9 +8,9 @@
 
 inline constexpr const char* PROMPT = ">  ";
 
-static inline constexpr const char BEG = '\001';
-static inline constexpr const char DEL = '\177';
-static inline constexpr const char ESC = '\033';
+static inline constexpr char BEG = '\001';
+static inline constexpr char DEL = '\177';
+static inline constexpr char ESC = '\033';
 
 static inline constexpr const char* ERASE = "\033[0K";
 static inline constexpr const char* GREY = "\033[38;5;8m";
