@@ -6,7 +6,25 @@
 #include <iostream>
 #include <sstream>
 
+inline constexpr const char* PROMPT = ">  ";
+
+static inline constexpr const char BEG = '\001';
+static inline constexpr const char DEL = '\177';
+static inline constexpr const char ESC = '\033';
+
+static inline constexpr const char* ERASE = "\033[0K";
+static inline constexpr const char* GREY = "\033[38;5;8m";
+static inline constexpr const char* WHITE = "\033[0m";
+static inline constexpr const char* CURSOR_LEFT = "\033[1D";
+static inline constexpr const char* CURSOR_RIGHT = "\033[1C";
+
 // HISTORY_CACHE MEMBER FUNCTIONS
+
+bool HistoryCache::isLast() const { return iter == std::prev(history.end()); }
+
+std::string HistoryCache::getCurrent() const {
+  return history.empty() ? "" : *iter;
+}
 
 HistoryCache::HistoryCache() {
   addEntry("The brown dog lives on the prairie");
@@ -37,17 +55,14 @@ bool HistoryCache::moveBackward() {
 
 void HistoryCache::end() { iter = history.end(); }
 
-bool HistoryCache::isLast() const { return iter == std::prev(history.end()); }
-
-std::string HistoryCache::getCurrent() const {
-  return history.empty() ? "" : *iter;
-}
-
 // INPUT_LINE MEMBER FUNCTIONS
 
 std::string InputLine::getText() const { return text; }
+
 std::string InputLine::getPrediction() const { return prediction; }
+
 InputLine::InputState InputLine::getInputState() const { return inputState; }
+
 void InputLine::setText(const std::string& text) {
   this->cursorIndex = text.length();
   this->text = text;
@@ -126,9 +141,9 @@ bool InputLine::handleChar(const char ch) {
     } else
       return false;
 
-  } else if (ch == '\177') {  // handle backspace
+  } else if (ch == DEL) {  // handle backspace
     if (cursorIndex) {
-      std::cout << "\177";
+      std::cout << DEL;
       backspace();
       predictFromHistory();
     }
@@ -197,10 +212,22 @@ void _getline(InputLine& inputLine) {
 
   setNonCanonicalMode(terminalSettings);
 
-  while (readNextChar(ch) && ch != '\n') {
-    if (!inputLine.handleChar(ch)) continue;
-    inputLine.displayCurrInput();
+  std::cout << PROMPT << std::flush;
+
+  while (readNextChar(ch)) {
+    if (ch == '\n' && !inputLine.getText().empty()) break;
+
+    if (ch != '\n' && inputLine.handleChar(ch)) {
+      inputLine.displayCurrInput();
+    }
   }
+
+  if (inputLine.getInputState() == InputLine::InputState::INPUT) {
+    inputLine.historyCache.addEntry(inputLine.getText());
+  }
+
+  std::cout << '\r' << ERASE << std::flush;
+  inputLine.reset();
 
   tcsetattr(STDIN_FILENO, TCSANOW, &terminalSettings);
 }
