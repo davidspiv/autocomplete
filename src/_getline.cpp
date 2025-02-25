@@ -26,13 +26,6 @@ std::string HistoryCache::getCurrent() const {
   return history.empty() ? "" : *iter;
 }
 
-HistoryCache::HistoryCache() {
-  addEntry("The brown dog lives on the prairie");
-  addEntry("Yellow is the color of sunshine");
-  addEntry("My neighbor always eats bacon for breakfast");
-  iter = history.end();
-};
-
 void HistoryCache::addEntry(const std::string& entry) {
   history.push_back(entry);
 }
@@ -213,6 +206,8 @@ void _getline(InputLine& inputLine) {
   setNonCanonicalMode(terminalSettings);
 
   std::cout << PROMPT << std::flush;
+
+  inputLine.reset();
 
   while (readNextChar(ch)) {
     if (ch == '\n' && !inputLine.getText().empty()) break;

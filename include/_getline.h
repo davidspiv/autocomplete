@@ -8,7 +8,7 @@
 
 class HistoryCache {
  public:
-  HistoryCache();
+  HistoryCache() : history(), iter(history.end()) {}
   ~HistoryCache() {};
   void addEntry(const std::string& entry);
   bool moveForward();
