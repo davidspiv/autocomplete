@@ -12,7 +12,6 @@ int main() {
 
   InputLine inputLine;
 
-
   inputLine.historyCache.addEntry("The brown dog lives on the prairie");
   inputLine.historyCache.addEntry("Yellow is the color of sunshine");
   inputLine.historyCache.addEntry(

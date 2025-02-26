@@ -203,11 +203,10 @@ void _getline(InputLine& inputLine) {
   static struct termios terminalSettings;
   char ch;
 
+  inputLine.reset();
   setNonCanonicalMode(terminalSettings);
 
   std::cout << PROMPT << std::flush;
-
-  inputLine.reset();
 
   while (readNextChar(ch)) {
     if (ch == '\n' && !inputLine.getText().empty()) break;
